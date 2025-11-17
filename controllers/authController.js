@@ -15,22 +15,35 @@ const signToken = (user) => {
 exports.register = async (req, res, next) => {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty())
+    if (!errors.isEmpty()) {
       return res
         .status(400)
         .json({ status: "error", message: errors.array()[0].msg });
+    }
 
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
+
+    // Check if user exists
     const existing = await User.findOne({ email });
-    if (existing)
+    if (existing) {
       return res
         .status(400)
         .json({ status: "error", message: "Email already in use" });
+    }
 
-    const user = new User({ name, email, password });
+    // SAFE ADMIN CREATION:
+    // Only allow "admin" if explicitly passed. Otherwise default to "user".
+    const user = new User({
+      name,
+      email,
+      password,
+      role: role === "admin" ? "admin" : "user",
+    });
+
     await user.save();
 
     const token = signToken(user);
+
     res.status(201).json({
       status: "success",
       message: "User Created",
@@ -50,20 +63,43 @@ exports.register = async (req, res, next) => {
 };
 
 exports.login = async (req, res, next) => {
-    try {
-        const errors = validationResult(req)
-        if (!errors.isEmpty()) return res.status(400).json({ status: 'error', message: errors.array()[0].msg})
-        
-        const { email, password } = req.body
-        const user = await User.findOne({ email })
-        if (!user) return res.status(401).json({ status: 'error', message: 'invalid credentials'})
-        
-        const isMatch = await user.comparePassword(password)
-        if (!isMatch) return res.status(401).json({ status: 'error', message: 'Invalid credentials'})
-        
-        const token = signToken(user)
-        res.json({ status: 'success', message: 'Login succesful', data: { token, user: {id: user._id, email: user.email, name: user.name, role: user.role}}})
-    } catch (err) {
-        next(err)
-    }
-}
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res
+        .status(400)
+        .json({ status: "error", message: errors.array()[0].msg });
+
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user)
+      return res
+        .status(401)
+        .json({ status: "error", message: "Invalid credentials" });
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch)
+      return res
+        .status(401)
+        .json({ status: "error", message: "Invalid credentials" });
+
+    const token = signToken(user);
+
+    res.json({
+      status: "success",
+      message: "Login successful",
+      data: {
+        token,
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};

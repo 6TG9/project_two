@@ -13,7 +13,7 @@ exports.createProduct = async (req, res, next) => {
     await product.save();
     res
       .status(201)
-      .json({ status: "success", message: "Product created, data: product" });
+      .json({ status: "success", message: "Product created", data: product });
   } catch (err) {
     next(err);
   }
